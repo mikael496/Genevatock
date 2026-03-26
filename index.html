@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📈 Stock Predictor Pro</title>
+<title>📈 Genevastock</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -201,14 +201,105 @@
     overflow: hidden;
   }
   .bar-inner { height: 100%; border-radius: 3px; transition: width 0.5s; }
+
+  /* Ticker Lookup Tool */
+  .lookup-card {
+    background: #0d1b2a;
+    border: 1px solid #1e3a5f;
+    border-radius: 16px;
+    padding: 22px 28px;
+    margin-bottom: 22px;
+  }
+  .lookup-card h2 { color: #ffd740; margin-bottom: 14px; font-size: 1rem; }
+  .lookup-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .lookup-input {
+    flex: 1; min-width: 200px;
+    background: #111827;
+    border: 1px solid #1e3a5f;
+    border-radius: 8px;
+    padding: 9px 14px;
+    color: #e0e6f0;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .lookup-input:focus { border-color: #ffd740; }
+  .lookup-btn {
+    background: linear-gradient(135deg, #ffd740, #ff9800);
+    border: none; border-radius: 8px;
+    padding: 10px 20px; color: #0a0e1a;
+    font-size: 0.9rem; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+    transition: opacity 0.2s;
+  }
+  .lookup-btn:hover { opacity: 0.85; }
+  .lookup-results { margin-top: 14px; display: none; }
+  .lookup-result-item {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #111827; border: 1px solid #1e3a5f;
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 8px;
+    cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    gap: 12px;
+  }
+  .lookup-result-item:hover { border-color: #ffd740; background: #1a2a3a; }
+  .lookup-result-left { display: flex; align-items: center; gap: 12px; }
+  .lookup-ticker-badge {
+    background: #ffd74022; color: #ffd740;
+    border: 1px solid #ffd74055;
+    border-radius: 6px; padding: 3px 10px;
+    font-size: 0.85rem; font-weight: 700;
+    white-space: nowrap;
+  }
+  .lookup-company-name { font-size: 0.9rem; color: #c0cfe0; }
+  .lookup-company-meta { font-size: 0.75rem; color: #556677; margin-top: 2px; }
+  .lookup-use-btn {
+    background: #00d4ff22; color: #00d4ff;
+    border: 1px solid #00d4ff44;
+    border-radius: 6px; padding: 4px 12px;
+    font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+    transition: background 0.2s;
+  }
+  .lookup-use-btn:hover { background: #00d4ff44; }
+  .lookup-no-results { color: #8899aa; font-size: 0.88rem; padding: 8px 0; }
+  .lookup-suggestions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .lookup-sug-chip {
+    background: #1a2a3a; border: 1px solid #2a3a4a;
+    border-radius: 16px; padding: 4px 12px;
+    font-size: 0.78rem; color: #8899aa; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .lookup-sug-chip:hover { border-color: #ffd740; color: #ffd740; }
 </style>
 </head>
 <body>
 <header>
   <span>📈</span>
-  <h1>Stock Predictor Pro</h1>
+  <h1>Genevastock</h1>
 </header>
 <div class="container">
+
+  <!-- TICKER LOOKUP TOOL -->
+  <div class="lookup-card">
+    <h2>🏢 Buscar ticker por nombre de empresa</h2>
+    <div class="lookup-row">
+      <input class="lookup-input" id="lookupInput" type="text" placeholder="Ej: Microsoft, Apple, Tesla, Amazon..." oninput="lookupCompany()" onkeydown="if(event.key==='Enter')lookupCompany()">
+      <button class="lookup-btn" onclick="lookupCompany()">Buscar 🔎</button>
+    </div>
+    <div class="lookup-suggestions">
+      <span style="font-size:0.75rem;color:#556677;align-self:center;">Prueba:</span>
+      <div class="lookup-sug-chip" onclick="setLookup('Microsoft')">Microsoft</div>
+      <div class="lookup-sug-chip" onclick="setLookup('Apple')">Apple</div>
+      <div class="lookup-sug-chip" onclick="setLookup('Tesla')">Tesla</div>
+      <div class="lookup-sug-chip" onclick="setLookup('Google')">Google</div>
+      <div class="lookup-sug-chip" onclick="setLookup('Amazon')">Amazon</div>
+      <div class="lookup-sug-chip" onclick="setLookup('Samsung')">Samsung</div>
+      <div class="lookup-sug-chip" onclick="setLookup('Netflix')">Netflix</div>
+      <div class="lookup-sug-chip" onclick="setLookup('Bitcoin')">Bitcoin</div>
+    </div>
+    <div class="lookup-results" id="lookupResults"></div>
+  </div>
+
   <div class="search-card">
     <h2>🔍 Buscar empresa o fondo</h2>
     <div class="form-row">
@@ -293,6 +384,143 @@
 
 <script>
 let mainChart = null;
+
+// ===================== TICKER LOOKUP DATABASE =====================
+const companyDB = [
+  { ticker: 'AAPL', name: 'Apple Inc.', sector: 'Tecnología', exchange: 'NASDAQ' },
+  { ticker: 'MSFT', name: 'Microsoft Corporation', sector: 'Tecnología', exchange: 'NASDAQ' },
+  { ticker: 'GOOGL', name: 'Alphabet Inc. (Google)', sector: 'Tecnología', exchange: 'NASDAQ' },
+  { ticker: 'GOOG', name: 'Alphabet Inc. Clase C (Google)', sector: 'Tecnología', exchange: 'NASDAQ' },
+  { ticker: 'AMZN', name: 'Amazon.com Inc.', sector: 'Consumo / Tecnología', exchange: 'NASDAQ' },
+  { ticker: 'TSLA', name: 'Tesla Inc.', sector: 'Automotriz / Energía', exchange: 'NASDAQ' },
+  { ticker: 'NVDA', name: 'NVIDIA Corporation', sector: 'Semiconductores', exchange: 'NASDAQ' },
+  { ticker: 'META', name: 'Meta Platforms Inc. (Facebook)', sector: 'Tecnología / Redes Sociales', exchange: 'NASDAQ' },
+  { ticker: 'NFLX', name: 'Netflix Inc.', sector: 'Entretenimiento / Streaming', exchange: 'NASDAQ' },
+  { ticker: 'INTC', name: 'Intel Corporation', sector: 'Semiconductores', exchange: 'NASDAQ' },
+  { ticker: 'AMD', name: 'Advanced Micro Devices', sector: 'Semiconductores', exchange: 'NASDAQ' },
+  { ticker: 'PYPL', name: 'PayPal Holdings Inc.', sector: 'Fintech / Pagos', exchange: 'NASDAQ' },
+  { ticker: 'ADBE', name: 'Adobe Inc.', sector: 'Software', exchange: 'NASDAQ' },
+  { ticker: 'CRM', name: 'Salesforce Inc.', sector: 'Software / CRM', exchange: 'NYSE' },
+  { ticker: 'ORCL', name: 'Oracle Corporation', sector: 'Software / Cloud', exchange: 'NYSE' },
+  { ticker: 'CSCO', name: 'Cisco Systems Inc.', sector: 'Redes / Tecnología', exchange: 'NASDAQ' },
+  { ticker: 'QCOM', name: 'Qualcomm Inc.', sector: 'Semiconductores', exchange: 'NASDAQ' },
+  { ticker: 'TXN', name: 'Texas Instruments Inc.', sector: 'Semiconductores', exchange: 'NASDAQ' },
+  { ticker: 'AVGO', name: 'Broadcom Inc.', sector: 'Semiconductores', exchange: 'NASDAQ' },
+  { ticker: 'SHOP', name: 'Shopify Inc.', sector: 'E-commerce / Software', exchange: 'NYSE' },
+  { ticker: 'UBER', name: 'Uber Technologies Inc.', sector: 'Transporte / Tecnología', exchange: 'NYSE' },
+  { ticker: 'LYFT', name: 'Lyft Inc.', sector: 'Transporte / Tecnología', exchange: 'NASDAQ' },
+  { ticker: 'SNAP', name: 'Snap Inc. (Snapchat)', sector: 'Redes Sociales', exchange: 'NYSE' },
+  { ticker: 'TWTR', name: 'Twitter / X Corp.', sector: 'Redes Sociales', exchange: 'NYSE' },
+  { ticker: 'SPOT', name: 'Spotify Technology S.A.', sector: 'Música / Streaming', exchange: 'NYSE' },
+  { ticker: 'ABNB', name: 'Airbnb Inc.', sector: 'Turismo / Tecnología', exchange: 'NASDAQ' },
+  { ticker: 'COIN', name: 'Coinbase Global Inc.', sector: 'Cripto / Fintech', exchange: 'NASDAQ' },
+  { ticker: 'RBLX', name: 'Roblox Corporation', sector: 'Gaming / Metaverso', exchange: 'NYSE' },
+  { ticker: 'HOOD', name: 'Robinhood Markets Inc.', sector: 'Fintech / Inversiones', exchange: 'NASDAQ' },
+  { ticker: 'PLTR', name: 'Palantir Technologies Inc.', sector: 'IA / Big Data', exchange: 'NYSE' },
+  { ticker: 'AI', name: 'C3.ai Inc.', sector: 'Inteligencia Artificial', exchange: 'NYSE' },
+  { ticker: 'PATH', name: 'UiPath Inc.', sector: 'Automatización / IA', exchange: 'NYSE' },
+  { ticker: 'ZM', name: 'Zoom Video Communications', sector: 'Comunicaciones / Software', exchange: 'NASDAQ' },
+  { ticker: 'DOCU', name: 'DocuSign Inc.', sector: 'Software / Firmas digitales', exchange: 'NASDAQ' },
+  { ticker: 'SNOW', name: 'Snowflake Inc.', sector: 'Cloud / Datos', exchange: 'NYSE' },
+  { ticker: 'NET', name: 'Cloudflare Inc.', sector: 'Ciberseguridad / Cloud', exchange: 'NYSE' },
+  { ticker: 'CRWD', name: 'CrowdStrike Holdings Inc.', sector: 'Ciberseguridad', exchange: 'NASDAQ' },
+  { ticker: 'PANW', name: 'Palo Alto Networks Inc.', sector: 'Ciberseguridad', exchange: 'NASDAQ' },
+  { ticker: 'OKTA', name: 'Okta Inc.', sector: 'Ciberseguridad / Identidad', exchange: 'NASDAQ' },
+  { ticker: 'JPM', name: 'JPMorgan Chase & Co.', sector: 'Banca / Finanzas', exchange: 'NYSE' },
+  { ticker: 'BAC', name: 'Bank of America Corp.', sector: 'Banca / Finanzas', exchange: 'NYSE' },
+  { ticker: 'GS', name: 'Goldman Sachs Group Inc.', sector: 'Banca de Inversión', exchange: 'NYSE' },
+  { ticker: 'MS', name: 'Morgan Stanley', sector: 'Banca de Inversión', exchange: 'NYSE' },
+  { ticker: 'V', name: 'Visa Inc.', sector: 'Pagos / Finanzas', exchange: 'NYSE' },
+  { ticker: 'MA', name: 'Mastercard Inc.', sector: 'Pagos / Finanzas', exchange: 'NYSE' },
+  { ticker: 'WMT', name: 'Walmart Inc.', sector: 'Retail / Consumo', exchange: 'NYSE' },
+  { ticker: 'TGT', name: 'Target Corporation', sector: 'Retail / Consumo', exchange: 'NYSE' },
+  { ticker: 'COST', name: 'Costco Wholesale Corporation', sector: 'Retail / Consumo', exchange: 'NASDAQ' },
+  { ticker: 'NKE', name: 'Nike Inc.', sector: 'Ropa / Deportes', exchange: 'NYSE' },
+  { ticker: 'DIS', name: 'The Walt Disney Company', sector: 'Entretenimiento / Media', exchange: 'NYSE' },
+  { ticker: 'CMCSA', name: 'Comcast Corporation', sector: 'Telecomunicaciones / Media', exchange: 'NASDAQ' },
+  { ticker: 'T', name: 'AT&T Inc.', sector: 'Telecomunicaciones', exchange: 'NYSE' },
+  { ticker: 'VZ', name: 'Verizon Communications Inc.', sector: 'Telecomunicaciones', exchange: 'NYSE' },
+  { ticker: 'XOM', name: 'ExxonMobil Corporation', sector: 'Energía / Petróleo', exchange: 'NYSE' },
+  { ticker: 'CVX', name: 'Chevron Corporation', sector: 'Energía / Petróleo', exchange: 'NYSE' },
+  { ticker: 'JNJ', name: 'Johnson & Johnson', sector: 'Salud / Farmacéutica', exchange: 'NYSE' },
+  { ticker: 'PFE', name: 'Pfizer Inc.', sector: 'Farmacéutica', exchange: 'NYSE' },
+  { ticker: 'MRNA', name: 'Moderna Inc.', sector: 'Biotecnología / Farmacéutica', exchange: 'NASDAQ' },
+  { ticker: 'BNTX', name: 'BioNTech SE', sector: 'Biotecnología', exchange: 'NASDAQ' },
+  { ticker: 'ABBV', name: 'AbbVie Inc.', sector: 'Farmacéutica', exchange: 'NYSE' },
+  { ticker: 'LLY', name: 'Eli Lilly and Company', sector: 'Farmacéutica', exchange: 'NYSE' },
+  { ticker: 'BA', name: 'Boeing Company', sector: 'Aeroespacial / Defensa', exchange: 'NYSE' },
+  { ticker: 'LMT', name: 'Lockheed Martin Corporation', sector: 'Defensa / Aeroespacial', exchange: 'NYSE' },
+  { ticker: 'SPCE', name: 'Virgin Galactic Holdings', sector: 'Turismo Espacial', exchange: 'NYSE' },
+  { ticker: 'RIVN', name: 'Rivian Automotive Inc.', sector: 'Vehículos Eléctricos', exchange: 'NASDAQ' },
+  { ticker: 'LCID', name: 'Lucid Group Inc.', sector: 'Vehículos Eléctricos', exchange: 'NASDAQ' },
+  { ticker: 'F', name: 'Ford Motor Company', sector: 'Automotriz', exchange: 'NYSE' },
+  { ticker: 'GM', name: 'General Motors Company', sector: 'Automotriz', exchange: 'NYSE' },
+  { ticker: 'SONY', name: 'Sony Group Corporation', sector: 'Electrónica / Entretenimiento', exchange: 'NYSE' },
+  { ticker: 'SSNLF', name: 'Samsung Electronics Co.', sector: 'Electrónica / Semiconductores', exchange: 'OTC' },
+  { ticker: 'TSM', name: 'Taiwan Semiconductor (TSMC)', sector: 'Semiconductores', exchange: 'NYSE' },
+  { ticker: 'BABA', name: 'Alibaba Group Holding Ltd.', sector: 'E-commerce / Tecnología', exchange: 'NYSE' },
+  { ticker: 'JD', name: 'JD.com Inc.', sector: 'E-commerce', exchange: 'NASDAQ' },
+  { ticker: 'TCEHY', name: 'Tencent Holdings Ltd.', sector: 'Tecnología / Gaming', exchange: 'OTC' },
+  { ticker: 'BTC-USD', name: 'Bitcoin', sector: 'Criptomoneda', exchange: 'Crypto' },
+  { ticker: 'ETH-USD', name: 'Ethereum', sector: 'Criptomoneda', exchange: 'Crypto' },
+  { ticker: 'BNB-USD', name: 'Binance Coin (BNB)', sector: 'Criptomoneda', exchange: 'Crypto' },
+  { ticker: 'SOL-USD', name: 'Solana', sector: 'Criptomoneda', exchange: 'Crypto' },
+  { ticker: 'XRP-USD', name: 'XRP (Ripple)', sector: 'Criptomoneda', exchange: 'Crypto' },
+  { ticker: 'DOGE-USD', name: 'Dogecoin', sector: 'Criptomoneda', exchange: 'Crypto' },
+  { ticker: 'SPY', name: 'SPDR S&P 500 ETF Trust', sector: 'ETF / Índice S&P 500', exchange: 'NYSE' },
+  { ticker: 'QQQ', name: 'Invesco QQQ Trust (NASDAQ-100)', sector: 'ETF / Índice NASDAQ', exchange: 'NASDAQ' },
+  { ticker: 'DIA', name: 'SPDR Dow Jones Industrial ETF', sector: 'ETF / Índice Dow Jones', exchange: 'NYSE' },
+  { ticker: 'IWM', name: 'iShares Russell 2000 ETF', sector: 'ETF / Small Cap', exchange: 'NYSE' },
+  { ticker: 'VTI', name: 'Vanguard Total Stock Market ETF', sector: 'ETF / Mercado Total', exchange: 'NYSE' },
+  { ticker: 'GLD', name: 'SPDR Gold Shares ETF', sector: 'ETF / Oro', exchange: 'NYSE' },
+  { ticker: 'SLV', name: 'iShares Silver Trust ETF', sector: 'ETF / Plata', exchange: 'NYSE' },
+  { ticker: 'ARKK', name: 'ARK Innovation ETF', sector: 'ETF / Innovación', exchange: 'NYSE' },
+];
+
+function setLookup(name) {
+  document.getElementById('lookupInput').value = name;
+  lookupCompany();
+}
+
+function lookupCompany() {
+  const query = document.getElementById('lookupInput').value.trim().toLowerCase();
+  const resultsDiv = document.getElementById('lookupResults');
+  if (!query || query.length < 2) { resultsDiv.style.display = 'none'; return; }
+
+  const matches = companyDB.filter(c =>
+    c.name.toLowerCase().includes(query) ||
+    c.ticker.toLowerCase().includes(query) ||
+    c.sector.toLowerCase().includes(query)
+  ).slice(0, 6);
+
+  resultsDiv.style.display = 'block';
+  if (matches.length === 0) {
+    resultsDiv.innerHTML = '<div class="lookup-no-results">❌ No se encontraron resultados para "<strong>' + query + '</strong>". Intenta con otro nombre o ticker.</div>';
+    return;
+  }
+
+  resultsDiv.innerHTML = matches.map(c => `
+    <div class="lookup-result-item" onclick="useTicker('${c.ticker}')">
+      <div class="lookup-result-left">
+        <div class="lookup-ticker-badge">${c.ticker}</div>
+        <div>
+          <div class="lookup-company-name">${c.name}</div>
+          <div class="lookup-company-meta">📂 ${c.sector} &nbsp;·&nbsp; 🏛️ ${c.exchange}</div>
+        </div>
+      </div>
+      <button class="lookup-use-btn" onclick="event.stopPropagation();useTicker('${c.ticker}')">Usar ticker →</button>
+    </div>
+  `).join('');
+}
+
+function useTicker(t) {
+  document.getElementById('ticker').value = t;
+  document.getElementById('lookupInput').value = '';
+  document.getElementById('lookupResults').style.display = 'none';
+  analyze();
+  document.querySelector('.search-card').scrollIntoView({ behavior: 'smooth' });
+}
+// ===================== END TICKER LOOKUP =====================
 
 function setTicker(t) {
   document.getElementById('ticker').value = t;
@@ -495,14 +723,14 @@ function generateNews(ticker, trend) {
   const isUp = trend > 0;
   const t = ticker.toUpperCase();
   const newsTemplates = [
-    { title: `${t} supera expectativas de analistas en el último trimestre`, sentiment: 'positive', source: 'MarketWatch', time: 'Hace 2 horas', url: `https://www.marketwatch.com/search?q=${t}` },
-    { title: `Inversores institucionales aumentan posiciones en ${t}`, sentiment: 'positive', source: 'Bloomberg', time: 'Hace 5 horas', url: `https://www.bloomberg.com/search?query=${t}` },
-    { title: `Análisis técnico: ${t} muestra señales de ${isUp ? 'fortaleza' : 'presión vendedora'}`, sentiment: isUp ? 'positive' : 'negative', source: 'TechAnalysis', time: 'Hace 8 horas', url: `https://finance.yahoo.com/quote/${t}/news/` },
-    { title: `${t}: ¿Momento de comprar o esperar? Expertos opinan`, sentiment: 'neutral', source: 'Reuters', time: 'Hace 1 día', url: `https://www.reuters.com/search/news?blob=${t}` },
-    { title: `Mercado global ${isUp ? 'impulsa' : 'presiona'} acciones de tecnología incluyendo ${t}`, sentiment: isUp ? 'positive' : 'negative', source: 'CNBC', time: 'Hace 1 día', url: `https://www.cnbc.com/quotes/${t}` },
-    { title: `${t} anuncia nuevos desarrollos en su hoja de ruta estratégica`, sentiment: 'positive', source: 'WSJ', time: 'Hace 2 días', url: `https://www.wsj.com/search?query=${t}` },
-    { title: `Volatilidad del mercado afecta a ${t} junto con el sector`, sentiment: 'negative', source: 'FT', time: 'Hace 2 días', url: `https://www.ft.com/search?q=${t}` },
-    { title: `Analistas de Goldman Sachs actualizan precio objetivo de ${t}`, sentiment: isUp ? 'positive' : 'neutral', source: 'Goldman Sachs', time: 'Hace 3 días', url: `https://finance.yahoo.com/quote/${t}/analysis/` },
+    { title: `${t} supera expectativas de analistas en el último trimestre`, sentiment: 'positive', source: 'MarketWatch', time: 'Hace 2 horas' },
+    { title: `Inversores institucionales aumentan posiciones en ${t}`, sentiment: 'positive', source: 'Bloomberg', time: 'Hace 5 horas' },
+    { title: `Análisis técnico: ${t} muestra señales de ${isUp ? 'fortaleza' : 'presión vendedora'}`, sentiment: isUp ? 'positive' : 'negative', source: 'TechAnalysis', time: 'Hace 8 horas' },
+    { title: `${t}: ¿Momento de comprar o esperar? Expertos opinan`, sentiment: 'neutral', source: 'Reuters', time: 'Hace 1 día' },
+    { title: `Mercado global ${isUp ? 'impulsa' : 'presiona'} acciones de tecnología incluyendo ${t}`, sentiment: isUp ? 'positive' : 'negative', source: 'CNBC', time: 'Hace 1 día' },
+    { title: `${t} anuncia nuevos desarrollos en su hoja de ruta estratégica`, sentiment: 'positive', source: 'WSJ', time: 'Hace 2 días' },
+    { title: `Volatilidad del mercado afecta a ${t} junto con el sector`, sentiment: 'negative', source: 'FT', time: 'Hace 2 días' },
+    { title: `Analistas de Goldman Sachs actualizan precio objetivo de ${t}`, sentiment: isUp ? 'positive' : 'neutral', source: 'Goldman Sachs', time: 'Hace 3 días' },
   ];
 
   const sentimentEmoji = { positive: '🟢', negative: '🔴', neutral: '🟡' };
@@ -678,30 +906,12 @@ async function analyze() {
   // News
   const news = generateNews(ticker, dailyTrend);
   document.getElementById('newsContainer').innerHTML = news.map(n => `
-    <div class="news-item" style="justify-content:space-between;align-items:center;">
-      <div style="display:flex;gap:12px;align-items:flex-start;flex:1;">
-        <div class="news-sentiment">${n.emoji}</div>
-        <div>
-          <div class="news-title">${n.title}</div>
-          <div class="news-meta">${n.source} · ${n.time}</div>
-        </div>
+    <div class="news-item">
+      <div class="news-sentiment">${n.emoji}</div>
+      <div>
+        <div class="news-title">${n.title}</div>
+        <div class="news-meta">${n.source} · ${n.time}</div>
       </div>
-      <a href="${n.url}" target="_blank" rel="noopener noreferrer" style="
-        flex-shrink:0;
-        margin-left:14px;
-        background:#1a2a3a;
-        border:1px solid #1e3a5f;
-        border-radius:8px;
-        padding:5px 12px;
-        font-size:0.75rem;
-        color:#00d4ff;
-        text-decoration:none;
-        white-space:nowrap;
-        transition:background 0.2s,border-color 0.2s;
-      " onmouseover="this.style.background='#0d1b2a';this.style.borderColor='#00d4ff';"
-         onmouseout="this.style.background='#1a2a3a';this.style.borderColor='#1e3a5f';">
-        Ver más →
-      </a>
     </div>
   `).join('');
 
